@@ -32,7 +32,7 @@ func main() {
 
 	// Create a CORS middleware
 	c := cors.New(cors.Options{
-		AllowedOrigins: []string{"http://localhost:3001"}, // Add your frontend URL
+		AllowedOrigins: []string{os.Getenv("ORIGIN")}, // Add your frontend URL
 		AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders: []string{"*"},
 		Debug:          true, // Enable debugging for testing, disable in production
