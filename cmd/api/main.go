@@ -35,7 +35,6 @@ func main() {
 		AllowedOrigins: []string{os.Getenv("ORIGIN")}, // Add your frontend URL
 		AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders: []string{"*"},
-		Debug:          true, // Enable debugging for testing, disable in production
 	})
 
 	handler := c.Handler(router)

@@ -11,6 +11,7 @@ import (
 	"shop-dashboard/internal/utils"
 	"time"
 
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
@@ -60,7 +61,7 @@ func ProductDto(ctx context.Context, body CreateProductRequest) (models.Product,
 		},
 		Pictures:   utils.ProcessPictures(body.Pictures, body.Name),
 		Tags:       body.Tags,
-		Gender:     "unisex",
+		Gender:     body.Gender,
 		CategoryID: body.Category,
 		CreatedAt:  time.Now(),
 		UpdatedAt:  time.Now(),
@@ -88,7 +89,7 @@ func (h *Handler) CreateProduct(w http.ResponseWriter, r *http.Request) {
 
 	product, err := ProductDto(ctx, body)
 	if err != nil {
-		http.Error(w, "Couild not process product data", http.StatusInternalServerError)
+		http.Error(w, "Could not process product data", http.StatusInternalServerError)
 		return
 	}
 	product.VendorID = vendor.ID
@@ -107,16 +108,16 @@ func (h *Handler) CreateProduct(w http.ResponseWriter, r *http.Request) {
 	}
 
 	vendorsCollection := database.GetCollection("vendors")
-	_, err = vendorsCollection.UpdateOne(ctx, map[string]any{"_id": vendor.ID}, map[string]any{"$inc": map[string]any{"productCount": 1}})
+	_, err = vendorsCollection.UpdateOne(ctx, bson.M{"_id": vendor.ID}, bson.M{"$inc": bson.M{"productCount": 1}})
 	if err != nil {
 		log.Print(err)
-		productsCollection.DeleteOne(ctx, map[string]any{"_id": result.InsertedID})
+		productsCollection.DeleteOne(ctx, bson.M{"_id": result.InsertedID})
 		http.Error(w, "Failed to update vendor product count", http.StatusInternalServerError)
 		return
 	}
 
 	categoriesCollection := database.GetCollection("categories")
-	_, err = categoriesCollection.UpdateOne(ctx, map[string]any{"_id": product.CategoryID}, map[string]any{"$inc": map[string]any{"productCount": 1}})
+	_, err = categoriesCollection.UpdateOne(ctx, bson.M{"_id": product.CategoryID}, bson.M{"$inc": bson.M{"productCount": 1}})
 	if err != nil {
 		log.Print(err)
 		return
@@ -125,7 +126,7 @@ func (h *Handler) CreateProduct(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(map[string]any{
-		"_id":     result.InsertedID,
+		"id":      result.InsertedID,
 		"message": "Product created successfully",
 	})
 }
