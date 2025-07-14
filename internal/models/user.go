@@ -63,3 +63,14 @@ type User struct {
 	Addresses      []UserAddress   `bson:"addesses" json:"addesses"`
 	Orders         []string        `bson:"orders" json:"orders"`
 }
+
+type UserInfo struct {
+	ID             primitive.ObjectID `json:"_id"`
+	User           primitive.ObjectID `json:"user"`
+	Name           string             `json:"name"`
+	SeName         string             `json:"seName"`
+	ImageUrl       string             `json:"imageUrl"`
+	ProductCount   int                `json:"productCount"`
+	FollowersCount int                `json:"followersCount"`
+	CreatedAt      string             `json:"createdAt"`
+}

@@ -22,6 +22,13 @@ type ProductPicture struct {
 	AlternateText string `bson:"alternateText" json:"alternateText"`
 }
 
+type Tag struct {
+	ID           string `json:"_id" bson:"_id"`
+	Name         string `json:"name" bson:"name"`
+	SeName       string `json:"seName" bson:"seName"`
+	ProductCount int    `json:"productCount" bson:"productCount"`
+}
+
 type ProductPrice struct {
 	OldPrice float64 `bson:"oldPrice" json:"oldPrice"`
 	Price    float64 `bson:"price" json:"price"`
@@ -61,9 +68,6 @@ type ProductVendor struct {
 	ProductCount   int                `bson:"productCount" json:"ProductCount"`
 	FollowersCount int                `bson:"followersCount" json:"followersCount"`
 	User           primitive.ObjectID `bson:"user" json:"user"`
-}
-
-type ProductTag struct {
 }
 
 type ProductReview struct {

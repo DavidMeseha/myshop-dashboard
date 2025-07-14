@@ -11,7 +11,6 @@ import (
 	"shop-dashboard/internal/utils"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
@@ -75,6 +74,7 @@ func (h *Handler) CreateProduct(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 
 	vendor, ok := middleware.GetUserInfo(r)
+	log.Printf(vendor.Name)
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
@@ -99,25 +99,24 @@ func (h *Handler) CreateProduct(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	productsCollection := database.GetCollection("products")
-	result, err := productsCollection.InsertOne(ctx, product)
+	result, err := database.CreateProduct(ctx, product)
 	if err != nil {
 		log.Print(err)
 		http.Error(w, "Failed to create product", http.StatusInternalServerError)
 		return
 	}
 
-	vendorsCollection := database.GetCollection("vendors")
-	_, err = vendorsCollection.UpdateOne(ctx, bson.M{"_id": vendor.ID}, bson.M{"$inc": bson.M{"productCount": 1}})
+	err = database.IncrementVendorProductsCount(ctx, vendor.ID)
 	if err != nil {
 		log.Print(err)
-		productsCollection.DeleteOne(ctx, bson.M{"_id": result.InsertedID})
+		if oid, ok := result.InsertedID.(primitive.ObjectID); ok {
+			database.HardDeleteProduct(ctx, oid)
+		}
 		http.Error(w, "Failed to update vendor product count", http.StatusInternalServerError)
 		return
 	}
 
-	categoriesCollection := database.GetCollection("categories")
-	_, err = categoriesCollection.UpdateOne(ctx, bson.M{"_id": product.CategoryID}, bson.M{"$inc": bson.M{"productCount": 1}})
+	err = database.IncrementCategoryProductsCount(ctx, product.CategoryID)
 	if err != nil {
 		log.Print(err)
 		return

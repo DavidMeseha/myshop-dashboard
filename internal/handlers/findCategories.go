@@ -5,11 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"shop-dashboard/internal/database"
-	"shop-dashboard/internal/models"
 	"time"
-
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 func (h *Handler) FindCategories(w http.ResponseWriter, r *http.Request) {
@@ -18,29 +14,9 @@ func (h *Handler) FindCategories(w http.ResponseWriter, r *http.Request) {
 
 	query := r.URL.Query().Get("query")
 
-	collection := database.GetCollection("categories")
-	findOptions := options.Find().SetLimit(8)
-
-	filter := bson.M{}
-	if query != "" {
-		filter = bson.M{
-			"$or": []bson.M{
-				{"name": bson.M{"$regex": query, "$options": "i"}},
-				{"seName": bson.M{"$regex": query, "$options": "i"}},
-			},
-		}
-	}
-
-	cursor, err := collection.Find(ctx, filter, findOptions)
+	categories, err := database.GetFilteredCategories(ctx, query, 8)
 	if err != nil {
-		http.Error(w, "Failed to fetch products", http.StatusInternalServerError)
-		return
-	}
-	defer cursor.Close(ctx)
-
-	var categories []models.ProductCategory
-	if err = cursor.All(ctx, &categories); err != nil {
-		http.Error(w, "Failed to decode products", http.StatusInternalServerError)
+		http.Error(w, "Failed to fetch Categories", http.StatusInternalServerError)
 		return
 	}
 

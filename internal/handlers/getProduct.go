@@ -9,8 +9,6 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 func (h *Handler) GetProduct(w http.ResponseWriter, r *http.Request) {
@@ -26,44 +24,15 @@ func (h *Handler) GetProduct(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	productID, err := primitive.ObjectIDFromHex(id)
-	if err != nil {
-		http.Error(w, "Invalid product id", http.StatusBadRequest)
-		return
-	}
-
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
 
-	collection := database.GetCollection("products")
-
-	pipeline := bson.A{
-		bson.M{"$match": bson.M{"_id": productID, "vendor": vendor.ID}},
-		bson.M{"$lookup": bson.M{
-			"from":         "categories",
-			"localField":   "category",
-			"foreignField": "_id",
-			"as":           "category",
-		}},
-		bson.M{"$unwind": bson.M{
-			"path":                       "$category",
-			"preserveNullAndEmptyArrays": true,
-		}},
-	}
-
-	cursor, err := collection.Aggregate(ctx, pipeline)
+	product, err := database.GetProduct(ctx, id, vendor.ID)
 	if err != nil {
-		http.Error(w, "Product not found", http.StatusNotFound)
-		return
-	}
-	defer cursor.Close(ctx)
-
-	var products []bson.M
-	if err := cursor.All(ctx, &products); err != nil || len(products) == 0 {
 		http.Error(w, "Product not found", http.StatusNotFound)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(products[0])
+	json.NewEncoder(w).Encode(product)
 }

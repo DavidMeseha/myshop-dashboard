@@ -3,7 +3,6 @@ package handlers
 import (
 	"context"
 	"encoding/json"
-	"math"
 	"net/http"
 	"shop-dashboard/internal/database"
 	"shop-dashboard/internal/middleware"
@@ -27,8 +26,8 @@ func (h *Handler) GetProducts(w http.ResponseWriter, r *http.Request) {
 	page, _ := strconv.ParseInt(r.URL.Query().Get("page"), 10, 64)
 	limit, _ := strconv.ParseInt(r.URL.Query().Get("limit"), 10, 64)
 	query := r.URL.Query().Get("query")
+	category := r.URL.Query().Get("category")
 	vendorID := vendor.ID
-	categoryID := r.URL.Query().Get("category")
 
 	if page < 1 {
 		page = 1
@@ -37,68 +36,21 @@ func (h *Handler) GetProducts(w http.ResponseWriter, r *http.Request) {
 		limit = 10
 	}
 
-	filter := bson.M{}
-	if query != "" {
-		filter["$or"] = []bson.M{
-			{"name": bson.M{"$regex": query, "$options": "i"}},
-			{"description": bson.M{"$regex": query, "$options": "i"}},
-		}
-	}
-	filter["vendor"] = vendorID
-
-	if vendorID == primitive.NilObjectID {
-		http.Error(w, "Failed to fetch products", http.StatusUnauthorized)
-		return
-	}
-
-	if categoryID != "" {
-		objectID, err := primitive.ObjectIDFromHex(categoryID)
+	var categoryID primitive.ObjectID
+	var err error
+	if category != "" {
+		categoryID, err = primitive.ObjectIDFromHex(category)
 		if err != nil {
 			http.Error(w, "Invalid category ID", http.StatusBadRequest)
 			return
 		}
-		filter["category"] = objectID
+	} else {
+		categoryID = primitive.NilObjectID
 	}
 
-	collection := database.GetCollection("products")
-
-	// Count total documents for pagination
-	totalCount, err := collection.CountDocuments(ctx, filter)
+	products, totalPages, totalCount, err := database.FilterProducts(ctx, query, limit, page, vendorID, categoryID)
 	if err != nil {
-		http.Error(w, "Failed to fetch counts", http.StatusInternalServerError)
-		return
-	}
-	totalPages := int64(math.Ceil(float64(totalCount) / float64(limit)))
-	skip := (page - 1) * limit
-
-	pipeline := bson.A{
-		bson.M{"$match": filter},
-		bson.M{"$sort": bson.M{"_id": -1}},
-		bson.M{"$skip": skip},
-		bson.M{"$limit": limit},
-		bson.M{"$lookup": bson.M{
-			"from":         "categories",
-			"localField":   "category",
-			"foreignField": "_id",
-			"as":           "category",
-		}},
-		bson.M{"$unwind": bson.M{
-			"path":                       "$category",
-			"preserveNullAndEmptyArrays": true,
-		}},
-	}
-
-	cursor, err := collection.Aggregate(ctx, pipeline)
-	if err != nil {
-		http.Error(w, "Failed to fetch products", http.StatusInternalServerError)
-		return
-	}
-	defer cursor.Close(ctx)
-
-	var products []bson.M
-	if err = cursor.All(ctx, &products); err != nil {
-		http.Error(w, "Failed to decode products", http.StatusInternalServerError)
-		return
+		http.Error(w, "Could not fetch products", http.StatusInternalServerError)
 	}
 
 	response := struct {

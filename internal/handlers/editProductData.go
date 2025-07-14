@@ -45,22 +45,19 @@ func (h *Handler) EditProductData(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Missing product id", http.StatusBadRequest)
 		return
 	}
-	productID, err := primitive.ObjectIDFromHex(id)
-	if err != nil {
-		http.Error(w, "Invalid product id", http.StatusBadRequest)
-		return
-	}
-	productsCollection := database.GetCollection("products")
 
 	var originalProduct struct {
 		Category    primitive.ObjectID `bson:"category"`
 		ProductTags []string           `bson:"productTags"`
 	}
-	err = productsCollection.FindOne(ctx, bson.M{"_id": productID, "vendor": vendor.ID}).Decode(&originalProduct)
+	product, err := database.GetProduct(ctx, id, vendor.ID)
 	if err != nil {
 		http.Error(w, "Product not found or not owned by vendor", http.StatusNotFound)
 		return
 	}
+
+	bsonBytes, _ := bson.Marshal(product)
+	bson.Unmarshal(bsonBytes, &originalProduct)
 
 	bodyBytes, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -107,11 +104,7 @@ func (h *Handler) EditProductData(w http.ResponseWriter, r *http.Request) {
 
 	updateFields["updatedAt"] = time.Now()
 
-	res, err := productsCollection.UpdateOne(
-		ctx,
-		bson.M{"_id": productID, "vendor": vendor.ID},
-		bson.M{"$set": updateFields},
-	)
+	res, err := database.UpdateProduct(ctx, id, vendor.ID, updateFields)
 	if err != nil {
 		http.Error(w, "Failed to update product", http.StatusInternalServerError)
 		return

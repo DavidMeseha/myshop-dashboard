@@ -8,8 +8,6 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 func (h *Handler) SoftDeleteProduct(w http.ResponseWriter, r *http.Request) {
@@ -22,17 +20,7 @@ func (h *Handler) SoftDeleteProduct(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	productID, err := primitive.ObjectIDFromHex(id)
-	if err != nil {
-		http.Error(w, "Invalid product id", http.StatusBadRequest)
-		return
-	}
-
-	collection := database.GetCollection("products")
-	filter := bson.M{"_id": productID}
-	update := bson.M{"$set": bson.M{"deleted": true}}
-
-	res, err := collection.UpdateOne(ctx, filter, update)
+	res, err := database.ChangeProductDeleteState(ctx, id, true)
 	if err != nil {
 		http.Error(w, "Failed to delete product", http.StatusInternalServerError)
 		return
@@ -60,17 +48,7 @@ func (h *Handler) RepublishProduct(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	productID, err := primitive.ObjectIDFromHex(id)
-	if err != nil {
-		http.Error(w, "Invalid product id", http.StatusBadRequest)
-		return
-	}
-
-	collection := database.GetCollection("products")
-	filter := bson.M{"_id": productID}
-	update := bson.M{"$set": bson.M{"deleted": false}}
-
-	res, err := collection.UpdateOne(ctx, filter, update)
+	res, err := database.ChangeProductDeleteState(ctx, id, false)
 	if err != nil {
 		http.Error(w, "Failed to re-publish product", http.StatusInternalServerError)
 		return

@@ -4,14 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
-	"regexp"
 	"shop-dashboard/internal/database"
 	"shop-dashboard/internal/utils"
 	"strings"
 	"time"
-
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type VendorSeNameRequest struct {
@@ -33,12 +29,8 @@ func (h *Handler) GenerateVendorSeName(w http.ResponseWriter, r *http.Request) {
 	}
 
 	baseSeName := utils.GenerateSeName(req.Name)
-	collection := database.GetCollection("vendors")
 
-	// Find existing SKUs that start with baseSKU
-	filter := bson.M{"seName": bson.M{"$regex": "^" + regexp.QuoteMeta(baseSeName)}}
-	opts := options.Find().SetProjection(bson.M{"seName": 1})
-	cursor, err := collection.Find(ctx, filter, opts)
+	cursor, err := database.FindVendorsBySeName(ctx, baseSeName)
 	if err != nil {
 		http.Error(w, "Database error", http.StatusInternalServerError)
 		return
@@ -65,7 +57,7 @@ func (h *Handler) GenerateVendorSeName(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	seName := findUniqueSeName(baseSeName, existingSeNames)
+	seName := utils.GenerateUniqueSeName(baseSeName, existingSeNames)
 
 	resp := UniqueProductResponse{
 		SeName: seName,

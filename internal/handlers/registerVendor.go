@@ -7,18 +7,13 @@ import (
 	"net/url"
 	"os"
 	"shop-dashboard/internal/database"
+	"shop-dashboard/internal/services"
 	"strings"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
-
-type BasicUser struct {
-	ID           string `json:"_id"`
-	IsVendor     bool   `json:"isVendor"`
-	IsRegistered bool   `json:"isRegistered"`
-}
 
 type RegisterVendorRequest struct {
 	Name   string `json:"name"`
@@ -37,25 +32,9 @@ func (h *Handler) RegisterVendorHandler(w http.ResponseWriter, r *http.Request) 
 	}
 	token = strings.TrimPrefix(token, "Bearer ")
 
-	authURL := os.Getenv("CLIENT_SERVER")
-	userReq, err := http.NewRequest("GET", authURL+"/api/v2/auth/check", nil)
+	user, err := services.CheckUserToken(token)
 	if err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-	userReq.Header.Set("Authorization", "Bearer "+token)
-
-	client := &http.Client{}
-	resp, err := client.Do(userReq)
-	if err != nil || resp.StatusCode != http.StatusOK {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-	defer resp.Body.Close()
-
-	var user BasicUser
-	if err := json.NewDecoder(resp.Body).Decode(&user); err != nil {
-		http.Error(w, "Invalid user data", http.StatusUnauthorized)
 		return
 	}
 
@@ -82,9 +61,7 @@ func (h *Handler) RegisterVendorHandler(w http.ResponseWriter, r *http.Request) 
 		}
 	}
 
-	vendorCollection := database.GetCollection("vendors")
-
-	count, err := vendorCollection.CountDocuments(ctx, bson.M{"seName": req.SeName})
+	count, err := database.CheckVendorSeName(ctx, req.SeName)
 	if err != nil {
 		http.Error(w, "Database error", http.StatusInternalServerError)
 		return
@@ -94,7 +71,6 @@ func (h *Handler) RegisterVendorHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	usersCollection := database.GetCollection("users")
 	userObjID, err := primitive.ObjectIDFromHex(user.ID)
 	if err != nil {
 		http.Error(w, "Invalid user ID", http.StatusInternalServerError)
@@ -112,24 +88,20 @@ func (h *Handler) RegisterVendorHandler(w http.ResponseWriter, r *http.Request) 
 		"usersFollowed":  []string{},
 		"createdAt":      time.Now(),
 	}
-	res, err := vendorCollection.InsertOne(ctx, vendorDoc)
+	res, err := database.CreateVendor(ctx, vendorDoc)
 	if err != nil {
 		http.Error(w, "Failed to create vendor", http.StatusInternalServerError)
 		return
 	}
 
-	_, err = usersCollection.UpdateOne(
-		ctx,
-		bson.M{"_id": userObjID},
-		bson.M{"$set": bson.M{"isVendor": true}},
-	)
+	err = database.UpdateUserIsVendorState(ctx, userObjID)
 	if err != nil {
 		http.Error(w, "Failed to update user as vendor", http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	json.NewEncoder(w).Encode(map[string]any{
 		"message":   "Vendor registered successfully",
 		"vendor_id": res.InsertedID,
 	})

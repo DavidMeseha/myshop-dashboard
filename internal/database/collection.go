@@ -19,3 +19,23 @@ func GetCollection(collectionName string) *mongo.Collection {
 	}
 	return MongoClient.Database(database).Collection(collectionName)
 }
+
+func ProductsCollection() *mongo.Collection {
+	return GetCollection("products")
+}
+
+func VendorsCollection() *mongo.Collection {
+	return GetCollection("vendors")
+}
+
+func CategoriesCollection() *mongo.Collection {
+	return GetCollection("categories")
+}
+
+func TagsCollection() *mongo.Collection {
+	return GetCollection("tags")
+}
+
+func UsersCollection() *mongo.Collection {
+	return GetCollection("users")
+}

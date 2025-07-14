@@ -15,14 +15,14 @@ func ProcessUpdatedTags(ctx context.Context, tags []string, productTags []string
 
 	toDecriment := NonIntersecting(productTags, existingTags)
 	if len(toDecriment) > 0 {
-		decrimentTags(ctx, toDecriment)
+		database.DecrimentTags(ctx, toDecriment)
 	}
 	toIncriment := NonIntersecting(existingTags, productTags)
 	if len(toIncriment) > 0 {
-		incrimentExistingTags(ctx, toIncriment)
+		database.IncrimentTags(ctx, toIncriment)
 	}
 
-	insetNewTags(ctx, newTags)
+	database.InsetNewTags(ctx, newTags)
 
 	return nil
 }
@@ -35,51 +35,18 @@ func ProcessTags(ctx context.Context, tags []string) error {
 
 	// Bulk increment productCount for all existing tags
 	if len(existingTags) > 0 {
-		incrimentExistingTags(ctx, existingTags)
+		database.IncrimentTags(ctx, existingTags)
 	}
 
 	// Insert new tags and collect their IDs
 	if len(newTags) > 0 {
-		err := insetNewTags(ctx, newTags)
+		err := database.InsetNewTags(ctx, newTags)
 		if err != nil {
 			return err
 		}
 	}
 
 	return nil
-}
-
-func insetNewTags(ctx context.Context, newTags []string) error {
-	tagCollection := database.GetCollection("tags")
-	tagsToAdd := bson.A{}
-	for _, tagName := range newTags {
-		tagsToAdd = append(tagsToAdd, bson.M{"name": tagName, "seName": tagName, "productCount": 1})
-	}
-
-	_, err := tagCollection.InsertMany(ctx, tagsToAdd)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func decrimentTags(ctx context.Context, tags []string) {
-	tagCollection := database.GetCollection("tags")
-	_, _ = tagCollection.UpdateMany(
-		ctx,
-		bson.M{"seName": bson.M{"$in": tags}},
-		bson.M{"$inc": bson.M{"productCount": -1}},
-	)
-}
-
-func incrimentExistingTags(ctx context.Context, existingTags []string) {
-	tagCollection := database.GetCollection("tags")
-	_, _ = tagCollection.UpdateMany(
-		ctx,
-		bson.M{"seName": bson.M{"$in": existingTags}},
-		bson.M{"$inc": bson.M{"productCount": 1}},
-	)
 }
 
 func getTags(ctx context.Context, tags []string) ([]string, []string, error) {
