@@ -102,7 +102,7 @@ func (h *Handler) CreateProduct(w http.ResponseWriter, r *http.Request) {
 	result, err := database.CreateProduct(ctx, product)
 	if err != nil {
 		log.Print(err)
-		http.Error(w, "Failed to create product", http.StatusInternalServerError)
+		http.Error(w, "Failed to create product due to product dublication", http.StatusConflict)
 		return
 	}
 
